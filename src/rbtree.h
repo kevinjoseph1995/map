@@ -3,11 +3,11 @@
 
 template <class KeyType, class ValueType>
 class RBTree {
- protected:
-  using pair = std::pair<KeyType, ValueType>;
+ private:
+  using value_type = std::pair<KeyType, ValueType>;
 
   struct RBTreeNode {
-    pair node_value;
+    value_type node_value;
     const KeyType& key = node_value.first;
     RBTreeNode* parent = nullptr;
     enum class Color : bool { RED, BLACK } color = Color::BLACK;
@@ -18,10 +18,10 @@ class RBTree {
  public:
   class TreeIterator {
    public:
-    using pointer = pair*;
-    using const_pointer = const pair*;
-    using reference = pair&;
-    using const_reference = const pair&;
+    using pointer = value_type*;
+    using const_pointer = const value_type*;
+    using reference = value_type&;
+    using const_reference = const value_type&;
 
    public:
     TreeIterator() = delete;
@@ -69,41 +69,24 @@ class RBTree {
  public:
   [[nodiscard]] std::size_t Size() const { return size_; }
 
-  bool Insert(const pair& element) {
-    RBTreeNode* current = end_node_.left_child.get();
-    RBTreeNode* previous = &end_node_;
-    while (current) {
-      if (current->key == element.first) {
-        // Duplicate key, the insert failed
-        return false;
-      } else if (current->key > element.first) {
-        previous = current;
-        current = current->left_child.get();
-      } else {
-        previous = current;
-        current = current->right_child.get();
-      }
+  std::pair<iterator, bool> Insert(const value_type& element) {
+    const auto parent = getParent(element.first);
+    if (parent == nullptr) {
+      return {iterator(nullptr), false};
     }
 
-    auto new_node = std::make_unique<RBTreeNode>();
-    new_node->parent = previous;
-    new_node->node_value = element;
-
-    const auto new_node_raw_ptr = new_node.get();
-
-    if (previous == &end_node_) {
-      end_node_.left_child = std::move(new_node);
-    } else if (previous->key > element.first) {
-      previous->left_child = std::move(new_node);
-    } else {
-      previous->right_child = std::move(new_node);
-    }
-
-    insertFixup(new_node_raw_ptr);
-    ++size_;
-
-    return true;
+    return insertInternal(parent, getNewNode(parent, element));
   }
+
+  std::pair<iterator, bool> Insert(value_type&& element) {
+    const auto parent = getParent(element.first);
+    if (parent == nullptr) {
+      return {iterator(nullptr), false};
+    }
+
+    return insertInternal(parent, getNewNode(parent, std::move(element)));
+  }
+
   iterator begin() {
     RBTreeNode* current = end_node_.left_child.get();
     RBTreeNode* previous = nullptr;
@@ -249,6 +232,60 @@ class RBTree {
     }
     // Root is force to become BLACK to maintain RBTree property invariance
     end_node_.left_child->color = Color::BLACK;
+  }
+
+  // Returns the parent of a new key that's about to be added
+  // will return nullptr if the key is duplicate
+  [[nodiscard]] RBTreeNode* getParent(const KeyType& key) {
+    RBTreeNode* current = end_node_.left_child.get();
+    RBTreeNode* previous = &end_node_;
+    while (current) {
+      if (current->key == key) {
+        // Duplicate key, the insert failed
+        return nullptr;
+      } else if (current->key > key) {
+        previous = current;
+        current = current->left_child.get();
+      } else {
+        previous = current;
+        current = current->right_child.get();
+      }
+    }
+    return previous;
+  }
+
+  [[nodiscard]] std::pair<iterator, bool> insertInternal(
+      RBTreeNode* parent, std::unique_ptr<RBTreeNode>&& new_node) {
+    const auto new_node_raw_ptr = new_node.get();
+
+    if (parent == &end_node_) {
+      end_node_.left_child = std::move(new_node);
+    } else if (parent->key > new_node->key) {
+      parent->left_child = std::move(new_node);
+    } else {
+      parent->right_child = std::move(new_node);
+    }
+
+    insertFixup(new_node_raw_ptr);
+    ++size_;
+
+    return {iterator(new_node_raw_ptr), true};
+  }
+
+  [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(
+      RBTreeNode* parent, value_type&& element) const {
+    auto new_node = std::make_unique<RBTreeNode>();
+    new_node->parent = parent;
+    new_node->node_value = std::move(element);
+    return new_node;
+  }
+
+  [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(
+      RBTreeNode* parent, const value_type& element) const {
+    auto new_node = std::make_unique<RBTreeNode>();
+    new_node->parent = parent;
+    new_node->node_value = element;
+    return new_node;
   }
 
  private:

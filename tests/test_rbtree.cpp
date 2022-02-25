@@ -3,7 +3,7 @@
 //
 #include <gtest/gtest.h>
 
-#include <random>
+#include <iostream>
 
 #include "rbtree.h"
 
@@ -15,26 +15,37 @@ TEST(TEST_RB_TREE, TestEmptyOnConstruction) {
 TEST(TEST_RB_TREE, TestDuplicateKey) {
   RBTree<std::string, int> tree;
   using namespace std::string_literals;
-  ASSERT_EQ(true, tree.Insert({"Key1"s, 3666}));
-  ASSERT_EQ(false, tree.Insert({"Key1"s, 466666}));
+  bool result;
+  auto it = tree.end();
 
-  ASSERT_EQ(true, tree.Insert({"Key2"s, 46}));
-  ASSERT_EQ(true, tree.Insert({"Key3"s, 45}));
-  ASSERT_EQ(false, tree.Insert({"Key2"s, 4}));
+  std::tie(it, result) = tree.Insert({"Key1"s, 3666});
+  ASSERT_EQ(true, result);
+
+  std::tie(it, result) = tree.Insert({"Key1"s, 466666});
+  ASSERT_EQ(false, result);
+
+  std::tie(it, result) = tree.Insert({"Key2"s, 46});
+  ASSERT_EQ(true, result);
+
+  std::tie(it, result) = tree.Insert({"Key3"s, 45});
+  ASSERT_EQ(true, result);
+
+  std::tie(it, result) = tree.Insert({"Key2"s, 4});
+  ASSERT_EQ(false, result);
 }
 
 TEST(TEST_RB_TREE, TestTreeSizeQueryOnInsert) {
   RBTree<std::string, int> tree;
   using namespace std::string_literals;
-  ASSERT_EQ(true, tree.Insert({"Key1"s, 3666}));
+  tree.Insert({"Key1"s, 3666});
   ASSERT_EQ(1, tree.Size());
-  ASSERT_EQ(false, tree.Insert({"Key1"s, 466666}));
+  tree.Insert({"Key1"s, 466666});
   ASSERT_EQ(1, tree.Size());
-  ASSERT_EQ(true, tree.Insert({"Key2"s, 46}));
+  tree.Insert({"Key2"s, 46});
   ASSERT_EQ(2, tree.Size());
-  ASSERT_EQ(true, tree.Insert({"Key3"s, 45}));
+  tree.Insert({"Key3"s, 45});
   ASSERT_EQ(3, tree.Size());
-  ASSERT_EQ(false, tree.Insert({"Key2"s, 4}));
+  tree.Insert({"Key2"s, 4});
   ASSERT_EQ(3, tree.Size());
 }
 
@@ -83,6 +94,29 @@ TEST(TEST_RB_TREE, TestReverseIteration) {
                                             // RBTree when iterating through it
     }
   }
+}
+
+TEST(TEST_RB_TREE, TestInsertingOnlyMovalbleObjects) {
+  struct MovableObject {
+    MovableObject() = default;
+    MovableObject(const MovableObject&) = delete;
+    MovableObject(MovableObject&) = delete;
+    MovableObject& operator=(const MovableObject&) = delete;
+
+    MovableObject& operator=(MovableObject&& other)  noexcept {
+      // std::cout << "Move assignment operator called\n";
+      return *this;
+    };
+    MovableObject(MovableObject&& other) noexcept {
+        // std::cout << "Move constructor called\n";
+    };
+
+    int dummy_data{};
+  };
+  using namespace std::string_literals;
+  RBTree<std::string, MovableObject> tree;
+  auto [it, result] = tree.Insert({"KEY"s, MovableObject()});
+  ASSERT_EQ(true, result);
 }
 
 int main() {

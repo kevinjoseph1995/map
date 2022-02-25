@@ -113,8 +113,8 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
 
     std::pair<iterator, bool> Insert(value_type &&element)
     {
-        const auto parent = getParent(element.first);
-        if (parent == nullptr)
+        const auto [parent, result] = getParent(element.first);
+        if (result == false)
         {
             return {iterator(nullptr), false};
         }
@@ -305,9 +305,9 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         end_node_.left_child->color = Color::BLACK;
     }
 
-    // Returns the parent of a new key that's about to be added
-    // will return nullptr if the key is duplicate
-    [[nodiscard]] RBTreeNode *getParent(const KeyType &key)
+    // Returns the {parent, true} of the where "parent" is the future parent of the key that's about to be added, but if
+    // the key already exists then the function returns {node, false}  where node->key == key
+    [[nodiscard]] std::pair<RBTreeNode *, bool> getParent(const KeyType &key)
     {
         RBTreeNode *current = end_node_.left_child.get();
         RBTreeNode *previous = &end_node_;
@@ -316,7 +316,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             if (current->key == key)
             {
                 // Duplicate key, the insert failed
-                return nullptr;
+                return {current, false};
             }
             else if (current->key > key)
             {
@@ -329,7 +329,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
                 current = current->right_child.get();
             }
         }
-        return previous;
+        return {previous, true};
     }
 
     [[nodiscard]] std::pair<iterator, bool> insertInternal(RBTreeNode *parent, std::unique_ptr<RBTreeNode> &&new_node)

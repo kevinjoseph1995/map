@@ -36,7 +36,7 @@ TEST(TEST_RB_TREE, TestDuplicateKey)
     ASSERT_EQ(false, result);
 }
 
-TEST(TEST_RB_TREE, TestIteratorsReturnedFromInset)
+TEST(TEST_RB_TREE, TestIteratorsReturnedFromInsert)
 {
     RBTree<int, int> tree;
     tree.Insert({11, 45});
@@ -148,6 +148,107 @@ TEST(TEST_RB_TREE, TestInsertingOnlyMovalbleObjects)
     RBTree<std::string, MovableObject> tree;
     auto [it, result] = tree.Insert({"KEY"s, MovableObject()});
     ASSERT_EQ(true, result);
+}
+
+TEST(TEST_RB_TREE, TestIteratorsReturnedFromEmplace)
+{
+    RBTree<int, int> tree;
+    tree.Emplace(11, 45);
+    tree.Emplace(2, 45);
+    tree.Emplace(14, 45);
+    tree.Emplace(1, 45);
+    tree.Emplace(7, 45);
+    tree.Emplace(5, 45);
+    tree.Emplace(8, 45);
+    auto [it_4, result_4] = tree.Emplace(4, 45);
+    tree.Insert({15, 45});
+
+    ASSERT_EQ(it_4->first, 4);
+    ASSERT_EQ((++it_4)->first, 5);
+    ASSERT_EQ((++it_4)->first, 7);
+    ASSERT_EQ((++it_4)->first, 8);
+    ASSERT_EQ((++it_4)->first, 11);
+    ASSERT_EQ((++it_4)->first, 14);
+    ASSERT_EQ((++it_4)->first, 15);
+    ASSERT_EQ((++it_4), tree.end());
+}
+
+TEST(TEST_RB_TREE, TestTreeSizeQueryOnEmplace)
+{
+    RBTree<std::string, int> tree;
+    using namespace std::string_literals;
+    tree.Emplace("Key1"s, 3666);
+    ASSERT_EQ(1, tree.Size());
+    tree.Emplace("Key1"s, 466666);
+    ASSERT_EQ(1, tree.Size());
+    tree.Emplace("Key2"s, 46);
+    ASSERT_EQ(2, tree.Size());
+    tree.Emplace("Key3"s, 45);
+    ASSERT_EQ(3, tree.Size());
+    tree.Emplace("Key2"s, 4);
+    ASSERT_EQ(3, tree.Size());
+}
+
+TEST(TEST_RB_TREE, TestTreeEmplaceForwarding)
+{
+    using namespace std::string_literals;
+
+    static int copy_counter = 0;
+    static int copy_assignment_counter = 0;
+    static int move_counter = 0;
+    static int move_assignment_counter = 0;
+
+    auto resetCounters = [&]() {
+        copy_counter = 0;
+        copy_assignment_counter = 0;
+        move_counter = 0;
+        move_assignment_counter = 0;
+    };
+
+    struct CustomType
+    {
+        CustomType() = default;
+        CustomType(const CustomType &)
+        {
+            ++copy_counter;
+        }
+        CustomType &operator=(const CustomType &)
+        {
+            ++copy_assignment_counter;
+            return *this;
+        }
+        CustomType(CustomType &&) noexcept
+        {
+            ++move_counter;
+        }
+        CustomType &operator=(CustomType &&) noexcept
+        {
+            ++move_assignment_counter;
+            return *this;
+        }
+    };
+    RBTree<std::string, CustomType> tree;
+    const auto key = "Key"s;
+    auto [it, result] = tree.Emplace(key, CustomType());
+    ASSERT_TRUE(result);
+    ASSERT_EQ(it->first, key);
+    ASSERT_EQ(move_assignment_counter, 1);
+    ASSERT_EQ(move_counter, 0);
+    ASSERT_EQ(copy_assignment_counter, 0);
+    ASSERT_EQ(copy_counter, 0);
+
+    resetCounters();
+
+    const auto key2 = "Key2"s;
+    const auto unmovable_instance = CustomType();
+    std::tie(it, result) = tree.Emplace(key2, unmovable_instance);
+    ASSERT_EQ(it->first, key2);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(move_assignment_counter, 0);
+    ASSERT_EQ(move_counter, 0);
+    ASSERT_EQ(copy_assignment_counter, 1);
+    ASSERT_EQ(copy_counter, 0);
+    resetCounters();
 }
 
 int main()

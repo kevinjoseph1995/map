@@ -2,6 +2,7 @@
 #define RB_MAP_TREE_H
 
 #include <concepts>
+#include <type_traits>
 
 template <std::totally_ordered KeyType, class ValueType> class RBTree
 {
@@ -20,6 +21,27 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         } color = Color::BLACK;
         std::unique_ptr<RBTreeNode> left_child;
         std::unique_ptr<RBTreeNode> right_child;
+        RBTreeNode() = default;
+        RBTreeNode(const KeyType &key, const ValueType &value)
+        {
+            node_value.first = key;
+            node_value.second = value;
+        }
+        RBTreeNode(KeyType &&key, ValueType &&value)
+        {
+            node_value.first = std::move(key);
+            node_value.second = std::move(value);
+        }
+        RBTreeNode(const KeyType &key, ValueType &&value)
+        {
+            node_value.first = key;
+            node_value.second = std::move(value);
+        }
+        RBTreeNode(KeyType &&key, const ValueType &value)
+        {
+            node_value.first = std::move(key);
+            node_value.second = value;
+        }
     };
 
   public:
@@ -105,7 +127,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         const auto parent = getParent(element.first);
         if (parent == nullptr)
         {
-            return {iterator(nullptr), false};
+            return {iterator(parent), false};
         }
 
         return insertInternal(parent, getNewNode(parent, element));
@@ -116,10 +138,24 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         const auto [parent, result] = getParent(element.first);
         if (result == false)
         {
-            return {iterator(nullptr), false};
+            return {iterator(parent), false};
         }
 
         return insertInternal(parent, getNewNode(parent, std::move(element)));
+    }
+
+    template <typename First, typename Second> std::pair<iterator, bool> Emplace(First &&first, Second &&second)
+    {
+        static_assert(std::is_same_v<typename std::remove_const_t<std::remove_reference_t<First>>, KeyType>);
+        static_assert(std::is_same_v<typename std::remove_const_t<std::remove_reference_t<Second>>, ValueType>);
+
+        const auto [parent, result] = getParent(first);
+        if (result == false)
+        {
+            return {iterator(parent), false};
+        }
+
+        return insertInternal(parent, getNewNode(parent, std::forward<First>(first), std::forward<Second>(second)));
     }
 
     iterator begin()
@@ -368,6 +404,14 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         auto new_node = std::make_unique<RBTreeNode>();
         new_node->parent = parent;
         new_node->node_value = element;
+        return new_node;
+    }
+
+    template <typename First, typename Second>
+    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode *parent, First &&first, Second &&second) const
+    {
+        auto new_node = std::make_unique<RBTreeNode>(std::forward<First>(first), std::forward<Second>(second));
+        new_node->parent = parent;
         return new_node;
     }
 

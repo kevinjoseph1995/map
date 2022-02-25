@@ -39,58 +39,49 @@ TEST(TEST_RB_TREE, TestTreeSizeQueryOnInsert) {
 }
 
 TEST(TEST_RB_TREE, TestIteration) {
-  RBTree<int, int> tree;
-  std::array<int, 8> test_keys{8, 5, 34, 3, 2, 99, 6, 7};
-  for (auto key : test_keys) {
-    static constexpr auto VALUE = 10;
-    tree.Insert({key, VALUE});
-  }
-  std::sort(test_keys.begin(), test_keys.end());
-  auto it = test_keys.begin();
-  for (const auto& [key, value] : tree) {
-    ASSERT_EQ(*(it++), key);
-  }
-
-  // Try a different sequence. Added this because the previous case was not
-  // catching a particular insert sequence
-  test_keys = {10, 8, 9, 7, 6, 5, 4, 3};
-  RBTree<int, int> tree2;
-  for (auto key : test_keys) {
-    static constexpr auto VALUE = 10;
-    tree2.Insert({key, VALUE});
-  }
-  std::sort(test_keys.begin(), test_keys.end());
-  it = test_keys.begin();
-  for (const auto& [key, value] : tree2) {
-    ASSERT_EQ(*(it++), key);
+  std::vector<std::vector<int>> test_data_table{{8, 5, 34, 3, 2, 99, 6, 7},
+                                                {10, 9, 8, 7, 3},
+                                                {1, 2, -1, 6, 7, 8},
+                                                {10, 8, 9, 7, 6, 5, 4, 3},
+                                                {1},
+                                                {11, 2, 1, 14, 15, 7, 8, 4, 5}};
+  for (auto& test_entry : test_data_table) {
+    RBTree<int, int> tree;
+    for (auto key : test_entry) {
+      static constexpr int VALUE = 1;
+      tree.Insert({key, VALUE});
+    }
+    std::sort(test_entry.begin(), test_entry.end());
+    auto tree_iterator = tree.begin();
+    for (auto key : test_entry) {
+      ASSERT_EQ(key, (tree_iterator++)->first);  // Checks if we get keys out in
+                                                 // sorted order out the RBTree
+                                                 // when iterating through it
+    }
   }
 }
 
 TEST(TEST_RB_TREE, TestReverseIteration) {
-  RBTree<int, int> tree;
-  std::array<int, 8> test_keys{8, 5, 34, 3, 2, 99, 6, 7};
-  for (auto key : test_keys) {
-    static constexpr auto VALUE = 10;
-    tree.Insert({key, VALUE});
-  }
-  std::sort(test_keys.begin(), test_keys.end(), std::greater<>());
-  auto it = --tree.end();
-  for (auto test_key : test_keys) {
-    ASSERT_EQ(test_key, (it--)->first);
-  }
-
-  // Try a different sequence. Added this because the previous case was not
-  // catching a particular insert sequence
-  test_keys = {10, 8, 9, 7, 6, 5, 4, 3};
-  RBTree<int, int> tree2;
-  for (auto key : test_keys) {
-    static constexpr auto VALUE = 10;
-    tree2.Insert({key, VALUE});
-  }
-  std::sort(test_keys.begin(), test_keys.end(), std::greater<>());
-  it = --tree2.end();
-  for (auto test_key : test_keys) {
-    ASSERT_EQ(test_key, (it--)->first);
+  std::vector<std::vector<int>> test_data_table{{8, 5, 34, 3, 2, 99, 6, 7},
+                                                {10, 9, 8, 7, 3},
+                                                {1, 2, -1, 6, 7, 8},
+                                                {10, 8, 9, 7, 6, 5, 4, 3},
+                                                {1},
+                                                {11, 2, 1, 14, 15, 7, 8, 4, 5}};
+  for (auto& test_entry : test_data_table) {
+    RBTree<int, int> tree;
+    for (auto key : test_entry) {
+      static constexpr int VALUE = 1;
+      tree.Insert({key, VALUE});
+    }
+    std::sort(test_entry.begin(), test_entry.end(), std::greater<>());
+    auto tree_iterator = --tree.end();
+    for (auto key : test_entry) {
+      ASSERT_EQ(key,
+                (tree_iterator--)->first);  // Checks if we get keys out in
+                                            // reverse-sorted order out the
+                                            // RBTree when iterating through it
+    }
   }
 }
 

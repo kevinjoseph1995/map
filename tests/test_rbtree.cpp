@@ -34,6 +34,28 @@ TEST(TEST_RB_TREE, TestDuplicateKey) {
   ASSERT_EQ(false, result);
 }
 
+TEST(TEST_RB_TREE, TestIteratorsReturnedFromInset) {
+  RBTree<int, int> tree;
+  tree.Insert({11, 45});
+  tree.Insert({2, 45});
+  tree.Insert({14, 45});
+  tree.Insert({1, 45});
+  tree.Insert({7, 45});
+  tree.Insert({5, 45});
+  tree.Insert({8, 45});
+  auto [it_4, result_4] = tree.Insert({4, 45});
+  tree.Insert({15, 45});
+
+  ASSERT_EQ(it_4->first, 4);
+  ASSERT_EQ((++it_4)->first, 5);
+  ASSERT_EQ((++it_4)->first, 7);
+  ASSERT_EQ((++it_4)->first, 8);
+  ASSERT_EQ((++it_4)->first, 11);
+  ASSERT_EQ((++it_4)->first, 14);
+  ASSERT_EQ((++it_4)->first, 15);
+  ASSERT_EQ((++it_4), tree.end());
+}
+
 TEST(TEST_RB_TREE, TestTreeSizeQueryOnInsert) {
   RBTree<std::string, int> tree;
   using namespace std::string_literals;
@@ -103,11 +125,11 @@ TEST(TEST_RB_TREE, TestInsertingOnlyMovalbleObjects) {
     MovableObject(MovableObject&) = delete;
     MovableObject& operator=(const MovableObject&) = delete;
 
-    MovableObject& operator=(MovableObject&& other)  noexcept {
+    MovableObject& operator=(MovableObject&&) noexcept {
       // std::cout << "Move assignment operator called\n";
       return *this;
     };
-    MovableObject(MovableObject&& other) noexcept {
+    MovableObject(MovableObject&&) noexcept {
         // std::cout << "Move constructor called\n";
     };
 

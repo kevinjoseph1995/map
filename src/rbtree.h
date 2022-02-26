@@ -160,14 +160,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
 
     iterator begin()
     {
-        RBTreeNode *current = end_node_.left_child.get();
-        RBTreeNode *previous = nullptr;
-        while (current)
-        {
-            previous = current;
-            current = Previous(current);
-        }
-        return iterator(previous);
+        return iterator(min_node_ptr_);
     }
 
     iterator end()
@@ -372,6 +365,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     {
         const auto new_node_raw_ptr = new_node.get();
 
+        if (min_node_ptr_ == nullptr || min_node_ptr_->key > new_node_raw_ptr->key)
+        {
+            min_node_ptr_ = new_node_raw_ptr;
+        }
+
         if (parent == &end_node_)
         {
             end_node_.left_child = std::move(new_node);
@@ -419,6 +417,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     // "end_node_" will always have its left_child pointing to the root of the
     // tree
     RBTreeNode end_node_;
+    RBTreeNode *min_node_ptr_ = nullptr;
     size_t size_ = 0;
 };
 

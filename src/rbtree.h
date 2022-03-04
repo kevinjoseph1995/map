@@ -42,6 +42,10 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             node_value.first = std::move(key);
             node_value.second = value;
         }
+        bool IsLeftChild()
+        {
+            return this == parent->left_child.get();
+        }
     };
 
   public:
@@ -89,25 +93,30 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
 
         TreeIterator &operator++()
         {
-            this->node_ptr_ = RBTree::Next(node_ptr_);
+            this->node_ptr_ = RBTree::next(node_ptr_);
             return (*this);
         }
         TreeIterator &operator--()
         {
-            this->node_ptr_ = RBTree::Previous(node_ptr_);
+            this->node_ptr_ = RBTree::previous(node_ptr_);
             return (*this);
         }
         TreeIterator operator++(int)
         {
             auto temp(*this);
-            this->node_ptr_ = RBTree::Next(node_ptr_);
+            this->node_ptr_ = RBTree::next(node_ptr_);
             return temp;
         }
         TreeIterator operator--(int)
         {
             auto temp(*this);
-            this->node_ptr_ = RBTree::Previous(node_ptr_);
+            this->node_ptr_ = RBTree::previous(node_ptr_);
             return temp;
+        }
+
+        RBTreeNode *GetUnderlyingNodePtr()
+        {
+            return node_ptr_;
         }
 
       private:
@@ -158,6 +167,25 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return insertInternal(parent, getNewNode(parent, std::forward<First>(first), std::forward<Second>(second)));
     }
 
+    iterator Erase(iterator to_delete)
+    {
+        const RBTreeNode *node_to_delete = to_delete.GetUnderlyingNodePtr(); // Node to delete
+        if (node_to_delete->left_child == nullptr)
+        {
+            // Node being deleted has no left child
+        }
+    }
+
+    static iterator begin(RBTree &tree)
+    {
+        return iterator(tree.min_node_ptr_);
+    }
+
+    static iterator end(RBTree &tree)
+    {
+        return iterator(&(tree.end_node_));
+    }
+
     iterator begin()
     {
         return iterator(min_node_ptr_);
@@ -169,7 +197,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     }
 
   private:
-    [[nodiscard]] static RBTreeNode *LeftMost(RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode *leftMost(RBTreeNode *node)
     {
         while (node->left_child)
         {
@@ -178,7 +206,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return node;
     }
 
-    [[nodiscard]] static RBTreeNode *RightMost(RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode *rightMost(RBTreeNode *node)
     {
         while (node->right_child)
         {
@@ -187,11 +215,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return node;
     }
 
-    [[nodiscard]] static RBTreeNode *Next(const RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode *next(const RBTreeNode *node)
     {
         if (node->right_child)
         {
-            return LeftMost(node->right_child.get());
+            return leftMost(node->right_child.get());
         }
         auto current = node;
         while (current->parent && current->parent->left_child.get() != current)
@@ -201,11 +229,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return current->parent;
     }
 
-    [[nodiscard]] static RBTreeNode *Previous(const RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode *previous(const RBTreeNode *node)
     {
         if (node->left_child)
         {
-            return RightMost(node->left_child.get());
+            return rightMost(node->left_child.get());
         }
         auto current = node;
         while (current->parent && current->parent->left_child.get() == current)
@@ -215,7 +243,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return current->parent;
     }
 
-    static void LeftRotate(RBTreeNode *x)
+    static void leftRotate(RBTreeNode *x)
     {
         assert(x->right_child != nullptr);
         RBTreeNode *grandparent = x->parent;
@@ -244,7 +272,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         }
     }
 
-    static void RightRotate(RBTreeNode *x)
+    static void rightRotate(RBTreeNode *x)
     {
         assert(x->left_child != nullptr);
         RBTreeNode *grandparent = x->parent;
@@ -273,7 +301,6 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         }
     }
 
-  private:
     void insertFixup(RBTreeNode *z)
     {
         using Color = typename RBTreeNode::Color;
@@ -297,11 +324,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
                     {
                         // z is a right child
                         z = z->parent;
-                        LeftRotate(z);
+                        leftRotate(z);
                     }
                     z->parent->color = Color::BLACK;
                     z->parent->parent->color = Color::RED;
-                    RightRotate(z->parent->parent);
+                    rightRotate(z->parent->parent);
                 }
             }
             else
@@ -322,11 +349,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
                     {
                         // z is a left child
                         z = z->parent;
-                        RightRotate(z);
+                        rightRotate(z);
                     }
                     z->parent->color = Color::BLACK;
                     z->parent->parent->color = Color::RED;
-                    LeftRotate(z->parent->parent);
+                    leftRotate(z->parent->parent);
                 }
             }
         }

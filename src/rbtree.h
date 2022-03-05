@@ -59,7 +59,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         using const_reference = const value_type&;
 
       public:
-        TreeIterator() = delete;
+        TreeIterator() = default;
         explicit TreeIterator(RBTreeNode* ptr) : node_ptr_(ptr)
         {
         }
@@ -182,10 +182,13 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         };
 
         RBTreeNode* const node_to_delete = to_delete.GetUnderlyingNodePtr(); // Node to delete
-        RBTreeNode* parent = node_to_delete->parent;
-        auto color_of_node_replaced_or_deleted = node_to_delete->color;
-        RBTreeNode* node_replaced_or_deleted = node_to_delete;
+        bool update_min_node_ptr = false;
+        if (to_delete->first == min_node_ptr_->key)
+        {
+            min_node_ptr_ = true;
+        }
 
+        RBTreeNode* parent = node_to_delete->parent;
         // There are 3 cases:
         //      1) "node_to_delete" has only right child
         //      2) "node_to_delete" has only left child
@@ -197,7 +200,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
             std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
             owning_ptr = std::move(temporary_owner->right_child);
-            owning_ptr->parent = parent;
+            if (owning_ptr)
+                owning_ptr->parent = parent;
+            if (update_min_node_ptr)
+                min_node_ptr_ = owning_ptr.get();
+            return TreeIterator(owning_ptr.get());
         }
         else if (node_to_delete->right_child == nullptr)
         {
@@ -206,15 +213,15 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
             owning_ptr = std::move(temporary_owner->left_child);
             owning_ptr->parent = parent;
+            if (update_min_node_ptr)
+                min_node_ptr_ = owning_ptr.get();
+            return TreeIterator(owning_ptr.get());
         }
         else
         {
             // Case 3
             auto successor = leftMost(node_to_delete->right_child.get());
             assert(successor->left_child == nullptr);
-
-            node_replaced_or_deleted = successor->right_child.get();
-            color_of_node_replaced_or_deleted = successor->color;
 
             // There are two possibilities, the successor's parent could be the node that's going to be deleted or not.
             if (successor->parent == node_to_delete)
@@ -226,28 +233,48 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
                 owning_ptr->parent = parent;
                 owning_ptr->color = temporary_owner->color;
                 owning_ptr->left_child->parent = owning_ptr.get();
+                if (update_min_node_ptr)
+                    min_node_ptr_ = owning_ptr.get();
+                return TreeIterator(owning_ptr.get());
             }
             else
             {
-                std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
-                std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
+                auto successor_parent = successor->parent;
+                std::unique_ptr<RBTreeNode> successor_temp_owner;
+                std::unique_ptr<RBTreeNode>& successor_current_owner = getOwningPointer(successor);
+                successor_current_owner.swap(successor_temp_owner);
+                // At this stage the successor is owned by the local unique_ptr -> "successor_temp_owner"
+                successor_current_owner = std::move(successor_temp_owner->right_child);
+                if (successor_current_owner)
+                {
+                    successor_current_owner->parent = successor_parent;
+                }
 
-                std::unique_ptr<RBTreeNode>& replacement_owning_ptr = getOwningPointer(successor);
-                owning_ptr.swap(replacement_owning_ptr);
-                replacement_owning_ptr = std::move(owning_ptr->right_child);
+                assert(successor_temp_owner->left_child ==
+                       nullptr); // Is null because it's the leftmost node in it;s subtree
+                assert(successor_temp_owner->right_child ==
+                       nullptr); // Is null because we have moved the right subtree to the location that the successor
+                                 // previous occupied in the tree
 
-                owning_ptr->parent = parent;
-                owning_ptr->color = temporary_owner->color;
+                std::unique_ptr<RBTreeNode>& deletion_node_owning_ptr = getOwningPointer(node_to_delete);
+                std::unique_ptr<RBTreeNode> deletion_node_temporary_owner(deletion_node_owning_ptr.release());
+                deletion_node_owning_ptr = std::move(successor_temp_owner);
+                deletion_node_owning_ptr->left_child = std::move(deletion_node_temporary_owner->left_child);
+                deletion_node_owning_ptr->left_child->parent = deletion_node_owning_ptr.get();
 
-                owning_ptr->left_child = std::move(temporary_owner->left_child);
-                owning_ptr->left_child->parent = owning_ptr.get();
-
-                owning_ptr->right_child = std::move(temporary_owner->right_child);
-                owning_ptr->right_child->parent = owning_ptr.get();
+                deletion_node_owning_ptr->right_child = std::move(deletion_node_temporary_owner->right_child);
+                deletion_node_owning_ptr->right_child->parent = deletion_node_owning_ptr.get();
+                deletion_node_owning_ptr->color = deletion_node_temporary_owner->color;
+                deletion_node_owning_ptr->parent = parent;
+                // When deletion_node_temporary_owner goes out of scope we would have deleted the node that we were
+                // intending on deleting
+                assert(deletion_node_temporary_owner->left_child == nullptr);
+                assert(deletion_node_temporary_owner->right_child == nullptr);
+                if (update_min_node_ptr)
+                    min_node_ptr_ = deletion_node_owning_ptr.get();
+                return TreeIterator(deletion_node_owning_ptr.get());
             }
         }
-        // TODO: Fix RBTree properties after deletetion
-        return TreeIterator(nullptr);
     }
 
     static iterator begin(RBTree& tree)

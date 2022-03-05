@@ -3,6 +3,7 @@
 //
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <iostream>
 
 #include "rbtree.h"
@@ -251,11 +252,59 @@ TEST(TEST_RB_TREE, TestTreeEmplaceForwarding)
     resetCounters();
 }
 
-TEST(TEST_RB_TREE, TestTreeErase)
+TEST(TEST_RB_TREE, TestTreeEraseWithoutCheckingInternalRBTProperties)
 {
     RBTree<int, int> tree;
-    auto it = tree.Insert({1, 1});
-    tree.Erase(it.first);
+
+    auto it_res_4 = tree.Insert({4, 1});
+    auto it_res_1 = tree.Insert({1, 1});
+    auto it_res_7 = tree.Insert({7, 1});
+    auto it_res_2 = tree.Insert({2, 1});
+    auto it_res_3 = tree.Insert({3, 1});
+    auto it_res_5 = tree.Insert({5, 1});
+    auto it_res_6 = tree.Insert({6, 1});
+
+    auto it = tree.Erase(it_res_4.first);
+    ASSERT_EQ(5, it->first);
+    it = tree.Erase(it_res_5.first);
+    ASSERT_EQ(6, it->first);
+    (void)it_res_7;
+    (void)it_res_2;
+    (void)it_res_3;
+    (void)it_res_6;
+    (void)it_res_1;
+}
+
+TEST(TEST_RB_TREE, TestIterationAfterErase)
+{
+    RBTree<int, int> tree;
+
+    static constexpr int kInputSize = 7;
+    RBTree<int, int>::iterator it[kInputSize]{};
+    std::array<int, kInputSize> keys{4, 1, 7, 2, 3, 5, 6};
+
+    for (int i = 0; i < kInputSize; i++)
+    {
+        bool result;
+        std::tie(it[i], result) = tree.Insert({keys[i], 1});
+        ASSERT_TRUE(result);
+    }
+
+    tree.Erase(it[0]);
+    for (auto& [key, val] : tree)
+    {
+        ASSERT_NE(keys[0], key);
+    }
+    tree.Erase(it[1]);
+    for (auto& [key, val] : tree)
+    {
+        ASSERT_NE(keys[1], key);
+    }
+    tree.Erase(it[2]);
+    for (auto& [key, val] : tree)
+    {
+        ASSERT_NE(keys[2], key);
+    }
 }
 
 int main()

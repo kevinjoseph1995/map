@@ -80,7 +80,7 @@ TEST(TEST_RB_TREE, TestIteration)
     std::vector<std::vector<int>> test_data_table{
         {8, 5, 34, 3, 2, 99, 6, 7},    {10, 9, 8, 7, 3}, {1, 2, -1, 6, 7, 8}, {10, 8, 9, 7, 6, 5, 4, 3}, {1},
         {11, 2, 1, 14, 15, 7, 8, 4, 5}};
-    for (auto &test_entry : test_data_table)
+    for (auto& test_entry : test_data_table)
     {
         RBTree<int, int> tree;
         for (auto key : test_entry)
@@ -104,7 +104,7 @@ TEST(TEST_RB_TREE, TestReverseIteration)
     std::vector<std::vector<int>> test_data_table{
         {8, 5, 34, 3, 2, 99, 6, 7},    {10, 9, 8, 7, 3}, {1, 2, -1, 6, 7, 8}, {10, 8, 9, 7, 6, 5, 4, 3}, {1},
         {11, 2, 1, 14, 15, 7, 8, 4, 5}};
-    for (auto &test_entry : test_data_table)
+    for (auto& test_entry : test_data_table)
     {
         RBTree<int, int> tree;
         for (auto key : test_entry)
@@ -129,16 +129,16 @@ TEST(TEST_RB_TREE, TestInsertingOnlyMovalbleObjects)
     struct MovableObject
     {
         MovableObject() = default;
-        MovableObject(const MovableObject &) = delete;
-        MovableObject(MovableObject &) = delete;
-        MovableObject &operator=(const MovableObject &) = delete;
+        MovableObject(const MovableObject&) = delete;
+        MovableObject(MovableObject&) = delete;
+        MovableObject& operator=(const MovableObject&) = delete;
 
-        MovableObject &operator=(MovableObject &&) noexcept
+        MovableObject& operator=(MovableObject&&) noexcept
         {
             // std::cout << "Move assignment operator called\n";
             return *this;
         };
-        MovableObject(MovableObject &&) noexcept {
+        MovableObject(MovableObject&&) noexcept {
             // std::cout << "Move constructor called\n";
         };
 
@@ -208,20 +208,20 @@ TEST(TEST_RB_TREE, TestTreeEmplaceForwarding)
     struct CustomType
     {
         CustomType() = default;
-        CustomType(const CustomType &)
+        CustomType(const CustomType&)
         {
             ++copy_counter;
         }
-        CustomType &operator=(const CustomType &)
+        CustomType& operator=(const CustomType&)
         {
             ++copy_assignment_counter;
             return *this;
         }
-        CustomType(CustomType &&) noexcept
+        CustomType(CustomType&&) noexcept
         {
             ++move_counter;
         }
-        CustomType &operator=(CustomType &&) noexcept
+        CustomType& operator=(CustomType&&) noexcept
         {
             ++move_assignment_counter;
             return *this;
@@ -249,6 +249,13 @@ TEST(TEST_RB_TREE, TestTreeEmplaceForwarding)
     ASSERT_EQ(copy_assignment_counter, 1);
     ASSERT_EQ(copy_counter, 0);
     resetCounters();
+}
+
+TEST(TEST_RB_TREE, TestTreeErase)
+{
+    RBTree<int, int> tree;
+    auto it = tree.Insert({1, 1});
+    tree.Erase(it.first);
 }
 
 int main()

@@ -2,6 +2,7 @@
 #define RB_MAP_TREE_H
 
 #include <concepts>
+#include <memory>
 #include <type_traits>
 
 template <std::totally_ordered KeyType, class ValueType> class RBTree
@@ -12,8 +13,8 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     struct RBTreeNode
     {
         value_type node_value;
-        const KeyType &key = node_value.first;
-        RBTreeNode *parent = nullptr;
+        const KeyType& key = node_value.first;
+        RBTreeNode* parent = nullptr;
         enum class Color : bool
         {
             RED,
@@ -22,22 +23,22 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         std::unique_ptr<RBTreeNode> left_child;
         std::unique_ptr<RBTreeNode> right_child;
         RBTreeNode() = default;
-        RBTreeNode(const KeyType &key, const ValueType &value)
+        RBTreeNode(const KeyType& key, const ValueType& value)
         {
             node_value.first = key;
             node_value.second = value;
         }
-        RBTreeNode(KeyType &&key, ValueType &&value)
+        RBTreeNode(KeyType&& key, ValueType&& value)
         {
             node_value.first = std::move(key);
             node_value.second = std::move(value);
         }
-        RBTreeNode(const KeyType &key, ValueType &&value)
+        RBTreeNode(const KeyType& key, ValueType&& value)
         {
             node_value.first = key;
             node_value.second = std::move(value);
         }
-        RBTreeNode(KeyType &&key, const ValueType &value)
+        RBTreeNode(KeyType&& key, const ValueType& value)
         {
             node_value.first = std::move(key);
             node_value.second = value;
@@ -52,24 +53,24 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     class TreeIterator
     {
       public:
-        using pointer = value_type *;
-        using const_pointer = const value_type *;
-        using reference = value_type &;
-        using const_reference = const value_type &;
+        using pointer = value_type*;
+        using const_pointer = const value_type*;
+        using reference = value_type&;
+        using const_reference = const value_type&;
 
       public:
         TreeIterator() = delete;
-        explicit TreeIterator(RBTreeNode *ptr) : node_ptr_(ptr)
+        explicit TreeIterator(RBTreeNode* ptr) : node_ptr_(ptr)
         {
         }
-        TreeIterator(const TreeIterator &other) = default;
-        TreeIterator &operator=(const TreeIterator &other) = default;
+        TreeIterator(const TreeIterator& other) = default;
+        TreeIterator& operator=(const TreeIterator& other) = default;
 
-        [[nodiscard]] bool operator==(const TreeIterator &other) const
+        [[nodiscard]] bool operator==(const TreeIterator& other) const
         {
             return node_ptr_ == other.node_ptr_;
         }
-        [[nodiscard]] bool operator!=(const TreeIterator &other) const
+        [[nodiscard]] bool operator!=(const TreeIterator& other) const
         {
             return node_ptr_ != other.node_ptr_;
         }
@@ -91,12 +92,12 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             return &(node_ptr_->node_value);
         }
 
-        TreeIterator &operator++()
+        TreeIterator& operator++()
         {
             this->node_ptr_ = RBTree::next(node_ptr_);
             return (*this);
         }
-        TreeIterator &operator--()
+        TreeIterator& operator--()
         {
             this->node_ptr_ = RBTree::previous(node_ptr_);
             return (*this);
@@ -114,13 +115,13 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             return temp;
         }
 
-        RBTreeNode *GetUnderlyingNodePtr()
+        RBTreeNode* GetUnderlyingNodePtr()
         {
             return node_ptr_;
         }
 
       private:
-        RBTreeNode *node_ptr_{};
+        RBTreeNode* node_ptr_{};
     };
 
     using iterator = TreeIterator;
@@ -131,7 +132,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return size_;
     }
 
-    std::pair<iterator, bool> Insert(const value_type &element)
+    std::pair<iterator, bool> Insert(const value_type& element)
     {
         const auto parent = getParent(element.first);
         if (parent == nullptr)
@@ -142,7 +143,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return insertInternal(parent, getNewNode(parent, element));
     }
 
-    std::pair<iterator, bool> Insert(value_type &&element)
+    std::pair<iterator, bool> Insert(value_type&& element)
     {
         const auto [parent, result] = getParent(element.first);
         if (result == false)
@@ -153,7 +154,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return insertInternal(parent, getNewNode(parent, std::move(element)));
     }
 
-    template <typename First, typename Second> std::pair<iterator, bool> Emplace(First &&first, Second &&second)
+    template <typename First, typename Second> std::pair<iterator, bool> Emplace(First&& first, Second&& second)
     {
         static_assert(std::is_same_v<typename std::remove_const_t<std::remove_reference_t<First>>, KeyType>);
         static_assert(std::is_same_v<typename std::remove_const_t<std::remove_reference_t<Second>>, ValueType>);
@@ -169,19 +170,92 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
 
     iterator Erase(iterator to_delete)
     {
-        const RBTreeNode *node_to_delete = to_delete.GetUnderlyingNodePtr(); // Node to delete
+        auto getOwningPointer = [](RBTreeNode* node) -> std::unique_ptr<RBTreeNode>& {
+            if (node->IsLeftChild())
+            {
+                return node->parent->left_child;
+            }
+            else
+            {
+                return node->parent->right_child;
+            }
+        };
+
+        RBTreeNode* const node_to_delete = to_delete.GetUnderlyingNodePtr(); // Node to delete
+        RBTreeNode* parent = node_to_delete->parent;
+        auto color_of_node_replaced_or_deleted = node_to_delete->color;
+        RBTreeNode* node_replaced_or_deleted = node_to_delete;
+
+        // There are 3 cases:
+        //      1) "node_to_delete" has only right child
+        //      2) "node_to_delete" has only left child
+        //      3) "node_to_delete" has both children
+        // The first two cases are symmetrical, and we handle them first
         if (node_to_delete->left_child == nullptr)
         {
-            // Node being deleted has no left child
+            // Case 1
+            std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
+            std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
+            owning_ptr = std::move(temporary_owner->right_child);
+            owning_ptr->parent = parent;
         }
+        else if (node_to_delete->right_child == nullptr)
+        {
+            // Case 2
+            std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
+            std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
+            owning_ptr = std::move(temporary_owner->left_child);
+            owning_ptr->parent = parent;
+        }
+        else
+        {
+            // Case 3
+            auto successor = leftMost(node_to_delete->right_child.get());
+            assert(successor->left_child == nullptr);
+
+            node_replaced_or_deleted = successor->right_child.get();
+            color_of_node_replaced_or_deleted = successor->color;
+
+            // There are two possibilities, the successor's parent could be the node that's going to be deleted or not.
+            if (successor->parent == node_to_delete)
+            {
+                std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
+                std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
+                owning_ptr = std::move(temporary_owner->right_child);
+                owning_ptr->left_child = std::move(temporary_owner->left_child);
+                owning_ptr->parent = parent;
+                owning_ptr->color = temporary_owner->color;
+                owning_ptr->left_child->parent = owning_ptr.get();
+            }
+            else
+            {
+                std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
+                std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
+
+                std::unique_ptr<RBTreeNode>& replacement_owning_ptr = getOwningPointer(successor);
+                owning_ptr.swap(replacement_owning_ptr);
+                replacement_owning_ptr = std::move(owning_ptr->right_child);
+
+                owning_ptr->parent = parent;
+                owning_ptr->color = temporary_owner->color;
+
+                owning_ptr->left_child = std::move(temporary_owner->left_child);
+                owning_ptr->left_child->parent = owning_ptr.get();
+
+                owning_ptr->right_child = std::move(temporary_owner->right_child);
+                owning_ptr->right_child->parent = owning_ptr.get();
+            }
+        }
+        // TODO: Fix RBTree properties after deletetion
+        return TreeIterator(nullptr);
     }
 
-    static iterator begin(RBTree &tree)
+    static iterator begin(RBTree& tree)
     {
         return iterator(tree.min_node_ptr_);
     }
 
-    static iterator end(RBTree &tree)
+    static iterator end(RBTree& tree)
     {
         return iterator(&(tree.end_node_));
     }
@@ -197,8 +271,9 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     }
 
   private:
-    [[nodiscard]] static RBTreeNode *leftMost(RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode* leftMost(RBTreeNode* node)
     {
+        assert(node);
         while (node->left_child)
         {
             node = node->left_child.get();
@@ -206,8 +281,9 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return node;
     }
 
-    [[nodiscard]] static RBTreeNode *rightMost(RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode* rightMost(RBTreeNode* node)
     {
+        assert(node);
         while (node->right_child)
         {
             node = node->right_child.get();
@@ -215,8 +291,9 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return node;
     }
 
-    [[nodiscard]] static RBTreeNode *next(const RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode* next(const RBTreeNode* node)
     {
+        assert(node);
         if (node->right_child)
         {
             return leftMost(node->right_child.get());
@@ -229,8 +306,9 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return current->parent;
     }
 
-    [[nodiscard]] static RBTreeNode *previous(const RBTreeNode *node)
+    [[nodiscard]] static RBTreeNode* previous(const RBTreeNode* node)
     {
+        assert(node);
         if (node->left_child)
         {
             return rightMost(node->left_child.get());
@@ -243,11 +321,12 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return current->parent;
     }
 
-    static void leftRotate(RBTreeNode *x)
+    static void leftRotate(RBTreeNode* x)
     {
+        assert(x);
         assert(x->right_child != nullptr);
-        RBTreeNode *grandparent = x->parent;
-        RBTreeNode *y = x->right_child.get();
+        RBTreeNode* grandparent = x->parent;
+        RBTreeNode* y = x->right_child.get();
         std::unique_ptr<RBTreeNode> temp;
         std::unique_ptr<RBTreeNode> temp2;
         if (x->parent->left_child.get() == x)
@@ -272,11 +351,12 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         }
     }
 
-    static void rightRotate(RBTreeNode *x)
+    static void rightRotate(RBTreeNode* x)
     {
+        assert(x);
         assert(x->left_child != nullptr);
-        RBTreeNode *grandparent = x->parent;
-        RBTreeNode *y = x->left_child.get();
+        RBTreeNode* grandparent = x->parent;
+        RBTreeNode* y = x->left_child.get();
         std::unique_ptr<RBTreeNode> temp;
         std::unique_ptr<RBTreeNode> temp2;
         if (x->parent->left_child.get() == x)
@@ -301,15 +381,16 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         }
     }
 
-    void insertFixup(RBTreeNode *z)
+    void insertFixup(RBTreeNode* z)
     {
+        assert(z);
         using Color = typename RBTreeNode::Color;
         while (z->parent->color == RBTreeNode::Color::RED)
         {
             if (z->parent == z->parent->parent->left_child.get())
             {
                 // Parent is a left child
-                RBTreeNode *aunt = z->parent->parent->right_child.get();
+                RBTreeNode* aunt = z->parent->parent->right_child.get();
                 if (aunt && aunt->color == Color::RED)
                 {
                     z->parent->color = Color::BLACK;
@@ -334,7 +415,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             else
             {
                 // Parent is a right child
-                RBTreeNode *aunt = z->parent->parent->left_child.get();
+                RBTreeNode* aunt = z->parent->parent->left_child.get();
                 if (aunt && aunt->color == Color::RED)
                 {
                     z->parent->color = Color::BLACK;
@@ -363,10 +444,10 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
 
     // Returns the {parent, true} of the where "parent" is the future parent of the key that's about to be added, but if
     // the key already exists then the function returns {node, false}  where node->key == key
-    [[nodiscard]] std::pair<RBTreeNode *, bool> getParent(const KeyType &key)
+    [[nodiscard]] std::pair<RBTreeNode*, bool> getParent(const KeyType& key)
     {
-        RBTreeNode *current = end_node_.left_child.get();
-        RBTreeNode *previous = &end_node_;
+        RBTreeNode* current = end_node_.left_child.get();
+        RBTreeNode* previous = &end_node_;
         while (current)
         {
             if (current->key == key)
@@ -388,7 +469,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return {previous, true};
     }
 
-    [[nodiscard]] std::pair<iterator, bool> insertInternal(RBTreeNode *parent, std::unique_ptr<RBTreeNode> &&new_node)
+    [[nodiscard]] std::pair<iterator, bool> insertInternal(RBTreeNode* parent, std::unique_ptr<RBTreeNode>&& new_node)
     {
         const auto new_node_raw_ptr = new_node.get();
 
@@ -416,7 +497,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return {iterator(new_node_raw_ptr), true};
     }
 
-    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode *parent, value_type &&element) const
+    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode* parent, value_type&& element) const
     {
         auto new_node = std::make_unique<RBTreeNode>();
         new_node->parent = parent;
@@ -424,7 +505,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         return new_node;
     }
 
-    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode *parent, const value_type &element) const
+    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode* parent, const value_type& element) const
     {
         auto new_node = std::make_unique<RBTreeNode>();
         new_node->parent = parent;
@@ -433,7 +514,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     }
 
     template <typename First, typename Second>
-    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode *parent, First &&first, Second &&second) const
+    [[nodiscard]] std::unique_ptr<RBTreeNode> getNewNode(RBTreeNode* parent, First&& first, Second&& second) const
     {
         auto new_node = std::make_unique<RBTreeNode>(std::forward<First>(first), std::forward<Second>(second));
         new_node->parent = parent;
@@ -444,7 +525,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     // "end_node_" will always have its left_child pointing to the root of the
     // tree
     RBTreeNode end_node_;
-    RBTreeNode *min_node_ptr_ = nullptr;
+    RBTreeNode* min_node_ptr_ = nullptr;
     size_t size_ = 0;
 };
 

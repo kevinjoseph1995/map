@@ -185,7 +185,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         bool update_min_node_ptr = false;
         if (to_delete->first == min_node_ptr_->key)
         {
-            min_node_ptr_ = true;
+            update_min_node_ptr = true;
         }
 
         RBTreeNode* parent = node_to_delete->parent;
@@ -226,16 +226,16 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             // There are two possibilities, the successor's parent could be the node that's going to be deleted or not.
             if (successor->parent == node_to_delete)
             {
-                std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
-                std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
-                owning_ptr = std::move(temporary_owner->right_child);
-                owning_ptr->left_child = std::move(temporary_owner->left_child);
-                owning_ptr->parent = parent;
-                owning_ptr->color = temporary_owner->color;
-                owning_ptr->left_child->parent = owning_ptr.get();
+                std::unique_ptr<RBTreeNode>& deletion_node_owning_ptr = getOwningPointer(node_to_delete);
+                std::unique_ptr<RBTreeNode> deletion_node_temporary_owner(deletion_node_owning_ptr.release());
+                deletion_node_owning_ptr = std::move(deletion_node_temporary_owner->right_child);
+                deletion_node_owning_ptr->left_child = std::move(deletion_node_temporary_owner->left_child);
+                deletion_node_owning_ptr->parent = parent;
+                deletion_node_owning_ptr->color = deletion_node_temporary_owner->color;
+                deletion_node_owning_ptr->left_child->parent = deletion_node_owning_ptr.get();
                 if (update_min_node_ptr)
-                    min_node_ptr_ = owning_ptr.get();
-                return TreeIterator(owning_ptr.get());
+                    min_node_ptr_ = deletion_node_owning_ptr.get();
+                return TreeIterator(deletion_node_owning_ptr.get());
             }
             else
             {

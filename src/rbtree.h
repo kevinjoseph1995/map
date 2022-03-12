@@ -43,7 +43,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             node_value.first = std::move(key);
             node_value.second = value;
         }
-        bool IsLeftChild()
+        [[nodiscard]] bool IsLeftChild() const
         {
             return this == parent->left_child.get();
         }
@@ -170,7 +170,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
 
     iterator Erase(iterator to_delete)
     {
-        auto getOwningPointer = [](RBTreeNode* node) -> std::unique_ptr<RBTreeNode>& {
+        auto getOwningPointer = [](const RBTreeNode* node) -> std::unique_ptr<RBTreeNode>& {
             if (node->IsLeftChild())
             {
                 return node->parent->left_child;

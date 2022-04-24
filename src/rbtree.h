@@ -197,24 +197,39 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
         if (node_to_delete->left_child == nullptr)
         {
             // Case 1
+            // "node_to_delete" has only right child, the right child takes up the place of the now deleted node
             std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
+
+            // Will get deleted when this goes out of scope
             std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
             owning_ptr = std::move(temporary_owner->right_child);
             if (owning_ptr)
                 owning_ptr->parent = parent;
             if (update_min_node_ptr)
                 min_node_ptr_ = owning_ptr.get();
+            if (temporary_owner->color == RBTreeNode::Color::BLACK)
+            {
+                // If the node being deleted was BLACK then we have broken the RBTree properties invariance
+                deleteFixup(owning_ptr.get());
+            }
             return TreeIterator(owning_ptr.get());
         }
         else if (node_to_delete->right_child == nullptr)
         {
             // Case 2
             std::unique_ptr<RBTreeNode>& owning_ptr = getOwningPointer(node_to_delete);
+
+            // Will get deleted when this goes out of scope
             std::unique_ptr<RBTreeNode> temporary_owner(owning_ptr.release());
             owning_ptr = std::move(temporary_owner->left_child);
             owning_ptr->parent = parent;
             if (update_min_node_ptr)
                 min_node_ptr_ = owning_ptr.get();
+            if (temporary_owner->color == RBTreeNode::Color::BLACK)
+            {
+                // If the node being deleted was BLACK then we have broken the RBTree properties invariance
+                deleteFixup(owning_ptr.get());
+            }
             return TreeIterator(owning_ptr.get());
         }
         else
@@ -222,7 +237,7 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             // Case 3
             auto successor = leftMost(node_to_delete->right_child.get());
             assert(successor->left_child == nullptr);
-
+            auto const successor_color = successor->color;
             // There are two possibilities, the successor's parent could be the node that's going to be deleted or not.
             if (successor->parent == node_to_delete)
             {
@@ -235,6 +250,10 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
                 deletion_node_owning_ptr->left_child->parent = deletion_node_owning_ptr.get();
                 if (update_min_node_ptr)
                     min_node_ptr_ = deletion_node_owning_ptr.get();
+                if (successor_color == RBTreeNode::Color::BLACK)
+                {
+                    deleteFixup(deletion_node_owning_ptr->right_child.get());
+                }
                 return TreeIterator(deletion_node_owning_ptr.get());
             }
             else
@@ -272,6 +291,10 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
                 assert(deletion_node_temporary_owner->right_child == nullptr);
                 if (update_min_node_ptr)
                     min_node_ptr_ = deletion_node_owning_ptr.get();
+                if (successor_color == RBTreeNode::Color::BLACK)
+                {
+                    deleteFixup(successor_current_owner.get());
+                }
                 return TreeIterator(deletion_node_owning_ptr.get());
             }
         }
@@ -406,6 +429,13 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
             assert(temp == nullptr);
             assert(temp2 == nullptr);
         }
+    }
+
+    void deleteFixup(RBTreeNode* x)
+    {
+        if (x == nullptr)
+            return;
+        static_cast<void>(x);
     }
 
     void insertFixup(RBTreeNode* z)

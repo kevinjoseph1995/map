@@ -435,7 +435,11 @@ template <std::totally_ordered KeyType, class ValueType> class RBTree
     {
         if (x == nullptr)
             return;
-        static_cast<void>(x);
+        while(x != end_node_.left_child.get() && x->color == RBTreeNode::Color::BLACK)
+        {
+          // TODO
+          break;
+        }
     }
 
     void insertFixup(RBTreeNode* z)
